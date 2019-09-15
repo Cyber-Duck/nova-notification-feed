@@ -51,6 +51,14 @@
                 this.unreadCount += 1
             },
             listenForCustomNotifications() {
+                let channelAndEvent = this.getChannelAndEvent();
+
+                Echo.channel(channelAndEvent.channel)
+                    .listen(channelAndEvent.event, (e) => {
+                        this.incrementUnreadCount()
+                    })
+            },
+            getChannelAndEvent() {
                 let channelAndEvent = document.head.querySelector('meta[name="user_private_channel"]').content;
                 let channelAndEventSegments = channelAndEvent.split('.');
                 let event = channelAndEventSegments[channelAndEventSegments.length - 1];
@@ -62,10 +70,10 @@
                 }
                 channel = channel.substring(1)
 
-                Echo.channel(channel)
-                    .listen(event, (e) => {
-                        this.incrementUnreadCount()
-                    })
+                return {
+                    channel: channel,
+                    event: event
+                }
             }
         },
         mounted() {
