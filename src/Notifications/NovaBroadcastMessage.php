@@ -19,7 +19,7 @@ class NovaBroadcastMessage extends BroadcastMessage
         $this->data = [
             'data' => $data,
             'read_at' => null,
-            'created_at' => now()->toDate(),
+            'created_at' => now(),
         ];
     }
 }

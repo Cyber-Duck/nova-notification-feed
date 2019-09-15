@@ -1,5 +1,5 @@
 {
-    "name": "coreproc/nova-notification-feed",
+    "name": "Cyber-Duck/nova-notification-feed",
     "description": "A Laravel Nova package that adds a notification feed in your Nova app.",
     "keywords": [
         "laravel",
