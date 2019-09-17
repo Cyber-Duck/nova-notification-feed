@@ -49,16 +49,41 @@ PUSHER_APP_KEY=xxxxxxx
 PUSHER_APP_SECRET=xxxxxx
 PUSHER_APP_CLUSTER=xxx
 ```
+You will need to create an event for the notification
 
-You will also need to ensure that you have added an authorization broadcast route in `routes/channels.php`:
-
-```php
-Broadcast::channel('App.User.{id}', function ($user, $id) {
-    return (int)$user->id === (int)$id;
-});
+```
+php artisan make:event NovaLiveNotificationCreated
 ```
 
-Receiving notifications will depend on your `User` model having the `Notifiable` trait. You can add the `receivesBroadcastNotificationsOn` to use a different channel name instead of the user model's namespace.
+This is the example Event class
+
+```$xslt
+
+class NovaNotificationCreated implements ShouldBroadcast
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    .
+    .
+    .
+    public function broadcastOn()
+    {
+        //must be the same channel defined in the next step.
+        //Please, pay attention to the receivesBroadcastNotificationsOn method in the next step
+        return new Channel("Users.{$this->user->id}");
+    }
+
+    public function broadcastWith()
+    {
+        //return the same data withing the toArray method of TestNotification class that can be found in the next step.
+    }
+  
+}
+
+```
+
+
+You will need to define the channel and the event you just created within receivesBroadcastNotificationsOn function.
 
 ```php
 class User extends Authenticatable
@@ -74,7 +99,8 @@ class User extends Authenticatable
      */
     public function receivesBroadcastNotificationsOn()
     {
-        return 'users.' . $this->id;
+        //ths last segment is the event name you created in the previous step.
+        return 'users.' . $this->id . '.NovaLiveNotificationCreated';
     }
 }
 ```
@@ -181,6 +207,13 @@ class TestNotification extends Notification
     }
 }
 ```
+
+You will also need to broadcast the event created in one of the previous steps as follow.
+
+```$xslt
+broadcast(new NovaNotificationCreated($mayBeYourParameter));
+```
+
 
 Nova Notification Feed relies on having three variables passed in the `toArray()` method of the notification class: `level`, `message`, and `url`, and an optional `target` (default: `'_blank'`).
 
