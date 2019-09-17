@@ -1,61 +1,88 @@
 <template>
-    <div>
-        <div @click="toggleNotificationsPanel" class="cursor-pointer notification-dropdown text-center notification-button" style="width:40px;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-                <path class="heroicon-ui" d="M15 19a3 3 0 0 1-6 0H4a1 1 0 0 1 0-2h1v-6a7 7 0 0 1 4.02-6.34 3 3 0 0 1 5.96 0A7 7 0 0 1 19 11v6h1a1 1 0 0 1 0 2h-5zm-4 0a1 1 0 0 0 2 0h-2zm0-12.9A5 5 0 0 0 7 11v6h10v-6a5 5 0 0 0-4-4.9V5a1 1 0 0 0-2 0v1.1z"/>
-            </svg>
-            <div class="badge" v-show="unreadCount > 0">
-                {{ unreadCount }}
+    <div class="text-white notifications-panel">
+        <div class="border-b border-80">
+            <div class="text-center px-6" id="notifications-panel-close" @click="toggleNotificationsPanel">
+                Close
             </div>
         </div>
-        <div v-show="isNotificationsPanelVisible">
-            <notifications-panel
-                @toggleNotificationsPanel="toggleNotificationsPanel"
-                @showUnreadNotificationCount="showUnreadNotificationCount"
-                @incrementUnreadCount="incrementUnreadCount"
-                v-bind:broadcast-on="this.broadcastOn">
-            </notifications-panel>
+        <div class="px-4 border-b border-80 overflow-y-scroll h-full">
+            <div v-for="notification in notifications">
+                <notification-message :notification="notification"></notification-message>
+            </div>
+            <infinite-loading @infinite="getNotifications"></infinite-loading>
         </div>
     </div>
 </template>
 
 <script>
+    import InfiniteLoading from 'vue-infinite-loading'
+
     export default {
-        name: 'NovaNotifications',
+        name: 'NotificationsPanel',
         props: [
-            'pusherKey',
-            'pusherCluster',
             'broadcastOn'
         ],
+        components: {
+            InfiniteLoading,
+        },
         data () {
             return {
-                isNotificationsPanelVisible: false,
-                unreadCount: 0,
+                notifications: [],
+                interval: null,
+                currentPage: 0
             }
         },
         methods: {
             toggleNotificationsPanel: function () {
-                this.isNotificationsPanelVisible = !this.isNotificationsPanelVisible
-
-                // Mark unread count as 0 when notifications panel is opened
-                if (this.isNotificationsPanelVisible) {
-                    axios.get('/nova-vendor/nova-notifications/notifications?mark_as_read=1').then(response => {
-                        this.unreadCount = 0
+                this.$emit('toggleNotificationsPanel')
+            },
+            getNotifications: function ($state) {
+                this.currentPage += 1
+                axios.get('/nova-vendor/nova-notifications/notifications?page=' + this.currentPage).then(response => {
+                    this.$emit('showUnreadNotificationCount', response.data.meta.unread_count)
+                    if (response.data.data.length) {
+                        response.data.data.forEach(i => {
+                            this.notifications.push(i)
+                        })
+                        if ($state !== undefined) {
+                            $state.loaded()
+                        }
+                    } else {
+                        if($state !== undefined) {
+                            $state.complete()
+                        }
+                    }
+                    // Assign current page just for redundancy's sake
+                    this.currentPage = response.data.meta.current_page
+                })
+            },
+            listenForNotifications () {
+                window.userPrivateChannel
+                    .notification((notification) => {
+                        // Increment the unread count
+                        this.$emit('incrementUnreadCount')
+                        // Add the notification to the top
+                        this.notifications.unshift(notification)
+                        // Show a toast
+                        this.$toasted.show(notification.data.message, {type: notification.data.level})
                     })
-                }
-            },
-            showUnreadNotificationCount: function (unreadCount) {
-                this.unreadCount = unreadCount
-            },
-            incrementUnreadCount: function () {
-                this.unreadCount += 1
             },
             listenForCustomNotifications() {
-                let channelAndEvent = this.getChannelAndEvent();
+                let channelAndEvent = this.getChannelAndEvent()
 
                 Echo.channel(channelAndEvent.channel)
-                    .listen(channelAndEvent.event, (e) => {
-                        this.incrementUnreadCount()
+                    .listen(channelAndEvent.event, (notification) => {
+                        //Increment the unread count
+                        this.$emit('incrementUnreadCount')
+                        // Add the notification to the top
+                        this.notifications.unshift({
+                            created_at: {
+                                date: new Date()
+                            },
+                            data: notification
+                        })
+                        // Show a toast
+                        this.$toasted.show(notification.message, {type: notification.level})
                     })
             },
             getChannelAndEvent() {
@@ -71,34 +98,38 @@
                 channel = channel.substring(1)
 
                 return {
-                    channel: channel,
-                    event: event
+                    event: event,
+                    channel: channel
                 }
             }
         },
-        mounted() {
-            this.listenForCustomNotifications();
+        created () {
+            this.getNotifications()
+            this.listenForNotifications()
+            this.listenForCustomNotifications()
         }
     }
 </script>
 
 <style scoped>
-    .notification-button {
-        color: white;
-        display: inline-block; /* Inline elements with width and height. TL;DR they make the icon buttons stack from left-to-right instead of top-to-bottom */
-        position: relative; /* All 'absolute'ly positioned elements are relative to this one */
+    .notifications-panel {
+        z-index: 999;
+        position: fixed !important;
+        right: 0;
+        top: 0;
+        width: 340px;
+        height: 100%;
+        background-color: #536170;
+        padding-bottom: 70px;
     }
 
-    .badge {
-        background-color: #fa3e3e;
-        border-radius: 2px;
-        color: white;
+    #notifications-panel-close {
+        height: 60px;
+        line-height: 60px;
+        cursor: pointer;
+    }
 
-        padding: 1px 3px;
-        font-size: 10px;
-
-        position: absolute;
-        top: 0;
-        right: 5px;
+    #notifications-panel-close:hover {
+        background-color: #252D37;
     }
 </style>

@@ -72,11 +72,17 @@
 
                 Echo.channel(channelAndEvent.channel)
                     .listen(channelAndEvent.event, (notification) => {
+                        //Increment the unread count
                         this.$emit('incrementUnreadCount')
                         // Add the notification to the top
-                        this.notifications.unshift(notification)
+                        this.notifications.unshift({
+                            created_at: {
+                                date: new Date()
+                            },
+                            data: notification
+                        })
                         // Show a toast
-                        this.$toasted.show(notification.data.message, {type: notification.data.level})
+                        this.$toasted.show(notification.message, {type: notification.level})
                     })
             },
             getChannelAndEvent() {
