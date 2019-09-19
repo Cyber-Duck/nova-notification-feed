@@ -175,7 +175,6 @@ class TestNotification extends Notification
     {
         return [
             'database',
-            'broadcast',
         ];
     }
 
